@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HOB — Sistema de Folha</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    .nav-item { transition: background-color 0.15s, color 0.15s; }
+    .nav-item.active { background-color: #2d5a9e; color: #fff; }
+    .nav-item:not(.active) { color: #93c5fd; }
+    .nav-item:hover:not(.active) { background-color: rgba(255,255,255,0.08); }
+    .drop-zone { border: 2px dashed #cbd5e1; transition: all 0.2s; }
+    .drop-zone.drag-over { border-color: #3b82f6; background: #eff6ff; }
+    .drop-zone.loaded { border-color: #16a34a; background: #f0fdf4; }
+    .drop-zone.has-error { border-color: #dc2626; background: #fef2f2; }
+    .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; }
+    table th { background: #1e3a5f; color: #fff; font-weight: 600; }
+    table tr:nth-child(even) { background: #f8fafc; }
+    table tr:hover { background: #f1f5f9; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-56 bg-[#1e3a5f] flex flex-col fixed h-full z-20 shadow-xl">
+      <div class="px-5 py-5 border-b border-[#2d4a7a]">
+        <div class="text-xl font-bold text-white tracking-wide">HOB</div>
+        <div class="text-xs text-blue-300 mt-0.5">Gestão de Folha · v0</div>
+      </div>
+      <nav class="flex-1 py-3 px-2 space-y-0.5">
+        <button data-nav="upload" onclick="App.navigate('upload')"
+          class="nav-item w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          Upload de Inputs
+        </button>
+        <button data-nav="validacao" onclick="App.navigate('validacao')"
+          class="nav-item w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Validação
+        </button>
+        <button data-nav="historico" onclick="App.navigate('historico')"
+          class="nav-item w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Histórico
+        </button>
+        <button data-nav="templates" onclick="App.navigate('templates')"
+          class="nav-item w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Templates
+        </button>
+        <button data-nav="parametros" onclick="App.navigate('parametros')"
+          class="nav-item w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Parâmetros
+        </button>
+      </nav>
+      <div class="px-4 py-3 border-t border-[#2d4a7a]">
+        <div class="text-xs text-blue-400">Armazenamento: localStorage</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 ml-56 min-h-screen">
+      <div id="main-content" class="p-6 max-w-6xl"></div>
+    </main>
+  </div>
+
+  <script src="storage.js"></script>
+  <script src="parser.js"></script>
+  <script src="engine.js"></script>
+  <script src="exporter.js"></script>
+  <script src="pages/upload.js"></script>
+  <script src="pages/validacao.js"></script>
+  <script src="pages/historico.js"></script>
+  <script src="pages/templates.js"></script>
+  <script src="pages/parametros.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
