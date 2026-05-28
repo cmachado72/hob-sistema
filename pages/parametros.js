@@ -2,7 +2,6 @@ const ParametrosPage = {
 
   render() {
     const params = Storage.getParams();
-    const g      = params.plc_global || {};
     const rows   = params.contas_raw;
     const loaded = Array.isArray(rows) && rows.length > 0;
 
@@ -72,23 +71,11 @@ const ParametrosPage = {
            </label>
          </div>`;
 
-    const globalInp = (id, campo, val, placeholder, label) =>
-      `<div>
-        <label class="text-xs font-medium text-gray-600 block mb-1">${label}</label>
-        <input type="text" id="plc-${id}" data-plc="${campo}" value="${val || ''}"
-          class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 bg-white"
-          placeholder="${placeholder}">
-      </div>`;
-
     return `
       <div>
         <div class="mb-6">
           <h1 class="text-2xl font-bold text-gray-900">Parâmetros</h1>
-          <p class="text-sm text-gray-500 mt-1">Configure o arquivo de contas e os campos fixos do layout SAP para geração do PLC.</p>
-        </div>
-
-        <div id="save-feedback" class="hidden mb-4 rounded-xl border border-green-300 bg-green-50 p-3 flex items-center gap-2 text-green-700 text-sm font-medium">
-          <span>✅</span> Parâmetros salvos com sucesso.
+          <p class="text-sm text-gray-500 mt-1">Carregue o arquivo de contas contábeis usado na geração do PLC.</p>
         </div>
 
         <!-- Seção 1: Arquivo de contas contábeis -->
@@ -105,37 +92,10 @@ const ParametrosPage = {
           ${tabelaHtml}
         </div>
 
-        <!-- Seção 2: Parâmetros globais do PLC -->
-        <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-          <span class="w-5 h-5 rounded-full bg-[#1e3a5f] text-white text-xs flex items-center justify-center font-bold">2</span>
-          Parâmetros globais do PLC <span class="text-slate-400 font-normal">(aplicados a todas as linhas)</span>
-        </h2>
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
-          <div class="grid grid-cols-2 gap-4">
-            ${globalInp('proj',   'projeto_financeiro',  g.projeto_financeiro,  'ex: 005232',                        'Projeto Financeiro')}
-            ${globalInp('regra',  'regra_distribuicao',  g.regra_distribuicao,  'ex: 4700',                          'Regra distr.')}
-            ${globalInp('dept',   'departamento_padrao', g.departamento_padrao, 'ex: 1601',                          'Departamento (cód. SAP)')}
-            ${globalInp('filial', 'filial',              g.filial,              'ex: HoB Associados em Consultoria...','Filial')}
-          </div>
-          <p class="text-xs text-slate-400 mt-3">
-            Estes valores preenchem as colunas <em>Projeto Financeiro</em>, <em>Regra distr.</em>,
-            <em>Departamento</em> e <em>Filial</em> em todas as linhas do PLC.
-            A coluna <em>Área</em> é preenchida com o Centro de Custo de cada pessoa.
-          </p>
-        </div>
-
-        <div class="flex items-center gap-4 pt-4 border-t border-slate-200">
-          <button id="btn-salvar"
-            class="px-6 py-2.5 bg-[#1e3a5f] hover:bg-[#2d5a9e] text-white rounded-lg font-semibold text-sm transition-colors shadow-md cursor-pointer">
-            Salvar parâmetros globais
-          </button>
-        </div>
       </div>`;
   },
 
   init() {
-    document.getElementById('btn-salvar').addEventListener('click', () => this.saveGlobal());
-
     const fileInput = document.getElementById('import-file-input');
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
@@ -233,13 +193,6 @@ const ParametrosPage = {
 
         // Salvar e re-renderizar
         const params = Storage.getParams();
-
-        // Auto-preencher Regra distr. a partir da primeira linha
-        const primeiraRegra = rows.find(r => r.regra)?.regra;
-        if (primeiraRegra && !params.plc_global.regra_distribuicao) {
-          params.plc_global.regra_distribuicao = primeiraRegra;
-        }
-
         params.contas_raw = rows;
         Storage.saveParams(params);
         App.render();
@@ -252,20 +205,4 @@ const ParametrosPage = {
     reader.readAsArrayBuffer(file);
   },
 
-  // ─── Salvar parâmetros globais ────────────────────────────────────
-
-  saveGlobal() {
-    const params = Storage.getParams();
-    if (!params.plc_global) params.plc_global = {};
-    document.querySelectorAll('input[data-plc]').forEach(input => {
-      params.plc_global[input.dataset.plc] = input.value.trim();
-    });
-    Storage.saveParams(params);
-
-    const fb = document.getElementById('save-feedback');
-    if (fb) {
-      fb.classList.remove('hidden');
-      setTimeout(() => fb.classList.add('hidden'), 3000);
-    }
-  }
 };
