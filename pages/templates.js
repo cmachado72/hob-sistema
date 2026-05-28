@@ -49,8 +49,8 @@ const TemplatesPage = {
       key: 'output02', type: 'OUTPUT', num: '02', icon: '📊',
       label: 'Pré-Lançamentos Contábeis (PLC)',
       area: 'Backoffice',
-      desc: 'Pré-lançamentos para upload no SAP. Cobre CLTs + Associados + Sócios.',
-      campos: ['Mes_Referencia','Data_Lancamento','Empresa','Centro_Custo','Conta_Debito','Conta_Credito','Valor','Historico','Vinculo','ID_Pessoa','Nome_Completo','CPF','Tipo_Verba','Descricao_Verba','Observacao'],
+      desc: 'Layout SAP (Modelo PLC). 2 linhas por verba (débito + crédito). Cobre CLTs + Associados + Sócios.',
+      campos: ['Cta.contáb./cód.PN','Cta.cont./Nome PN','Débito','Crédito','Projeto Financeiro','Código PN (CPF)','Código PN (Nome)','Observações','Regra distr.','Área','Departamento','Ref. 3','Filial'],
       color: 'border-slate-200 bg-slate-50',
       badge: 'bg-slate-100 text-slate-600'
     }

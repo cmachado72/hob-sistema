@@ -43,53 +43,100 @@ const Exporter = {
     XLSX.writeFile(wb, `HOB_Pagamentos_${mesRef}.xlsx`);
   },
 
+  // Colunas conforme Modelo PLC.xlsx (layout SAP)
+  PLC_HEADERS: [
+    'Cta.contáb./cód.PN',
+    'Cta.cont./Nome PN',
+    'Débito',
+    'Crédito',
+    'Projeto Financeiro',
+    'Código PN',
+    'Código PN',
+    'Observações',
+    'Regra distr.',
+    'Área',
+    'Departamento',
+    'Ref. 3',
+    'Filial'
+  ],
+
   generateOutput02(processedData, mesRef, params) {
     const { todasPessoas } = processedData;
-    const today  = this.today();
     const label  = this.monthLabel(mesRef);
     const contas = params.contasContabeis;
+    const g      = params.plc_global || {};
 
-    const headers = [
-      'Mes_Referencia','Data_Lancamento','Empresa','Centro_Custo',
-      'Conta_Debito','Conta_Credito','Valor','Historico',
-      'Vinculo','ID_Pessoa','Nome_Completo','CPF',
-      'Tipo_Verba','Descricao_Verba','Observacao'
-    ];
+    const projFin = g.projeto_financeiro  || '';
+    const regra   = g.regra_distribuicao  || '';
+    const dept    = g.departamento_padrao || '';
+    const filial  = g.filial              || '';
 
     const rows = [];
-    const addRow = (p, tipo, valor, hist, obs = '') => {
+
+    // Cada verba gera 2 linhas: 1 débito + 1 crédito (partidas dobradas)
+    const addEntry = (p, tipo, valor, obs) => {
       if (!valor || valor === 0) return;
-      const c = contas[tipo] || contas['OUTROS'];
+      const c   = contas[tipo] || contas['OUTROS'];
+      const cpf = (p.cpf || '').replace(/\D/g, ''); // CPF sem pontuação
+      const cc  = p.centro_custo || '';
+
+      // Linha de DÉBITO
       rows.push([
-        mesRef, today, 'HOB', p.centro_custo,
-        c.debito, c.credito, valor, hist,
-        p.vinculo, p.id_pessoa, p.nome_completo, p.cpf,
-        tipo, c.descricao, obs
+        c.debito,
+        c.nome_debito || c.descricao,
+        valor,   // Débito
+        '',      // Crédito
+        projFin,
+        cpf,
+        p.nome_completo,
+        obs,
+        regra,
+        cc,
+        dept,
+        p.id_pessoa,
+        filial
+      ]);
+
+      // Linha de CRÉDITO
+      rows.push([
+        c.credito,
+        c.nome_credito || c.descricao,
+        '',      // Débito
+        valor,   // Crédito
+        projFin,
+        cpf,
+        p.nome_completo,
+        obs,
+        regra,
+        cc,
+        dept,
+        p.id_pessoa,
+        filial
       ]);
     };
 
     todasPessoas.forEach(p => {
       if (p.vinculo === 'CLT') {
-        addRow(p, 'SALARIO',  p.salario_bruto,    `Salário Bruto ${label}`);
-        addRow(p, 'INSS',     p.inss,             `INSS ${label}`);
-        addRow(p, 'IRRF',     p.irrf,             `IRRF ${label}`);
-        addRow(p, 'FGTS',     p.fgts,             `FGTS ${label}`);
-        addRow(p, 'BENEFICIO',p.vale_transporte,  `Vale Transporte ${label}`);
-        addRow(p, 'BENEFICIO',p.vale_refeicao,    `Vale Refeição ${label}`);
-        addRow(p, 'OUTROS',   p.outros_descontos, `Outros Descontos ${label}`);
+        addEntry(p, 'SALARIO',  p.salario_bruto,    `Salário Bruto ${label}`);
+        addEntry(p, 'INSS',     p.inss,             `INSS ${label}`);
+        addEntry(p, 'IRRF',     p.irrf,             `IRRF ${label}`);
+        addEntry(p, 'FGTS',     p.fgts,             `FGTS ${label}`);
+        addEntry(p, 'BENEFICIO',p.vale_transporte,  `Vale Transporte ${label}`);
+        addEntry(p, 'BENEFICIO',p.vale_refeicao,    `Vale Refeição ${label}`);
+        addEntry(p, 'OUTROS',   p.outros_descontos, `Outros Descontos ${label}`);
       } else {
-        addRow(p, 'PRO_LABORE', p.pro_labore_bruto,           `Pro-labore ${label}`);
-        addRow(p, 'DESCONTO',   p.total_descontos_beneficios, `Descontos Benefícios ${label}`);
-        addRow(p, 'OUTROS',     p.comissao,                   `Comissão ${label}`);
-        addRow(p, 'OUTROS',     p.outros_creditos,            `Outros Créditos ${label}`);
+        addEntry(p, 'PRO_LABORE', p.pro_labore_bruto,           `Pro-labore ${label}`);
+        addEntry(p, 'DESCONTO',   p.total_descontos_beneficios, `Descontos Benefícios ${label}`);
+        addEntry(p, 'OUTROS',     p.comissao,                   `Comissão ${label}`);
+        addEntry(p, 'OUTROS',     p.outros_creditos,            `Outros Créditos ${label}`);
       }
     });
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    this.colWidths(ws, [14,14,8,12,14,14,14,30,12,10,30,16,14,24,22]);
+    const ws = XLSX.utils.aoa_to_sheet([this.PLC_HEADERS, ...rows]);
+    this.colWidths(ws, [18,36,14,14,18,16,32,42,12,14,14,14,48]);
     this.freezeHeader(ws);
-    XLSX.utils.book_append_sheet(wb, ws, 'Pre_Lancamentos_SAP');
+    XLSX.utils.book_append_sheet(wb, ws, 'PLC_SAP');
     XLSX.writeFile(wb, `HOB_PLC_${mesRef}.xlsx`);
   },
 
@@ -206,11 +253,11 @@ const Exporter = {
   _tplOutput02() {
     this._tpl(
       'HOB — OUTPUT: Pré-Lançamentos Contábeis (PLC) | Upload SAP',
-      'Gerado automaticamente. Cobre CLTs + Associados + Sócios.',
-      ['Mes_Referencia','Data_Lancamento','Empresa','Centro_Custo','Conta_Debito','Conta_Credito','Valor','Historico','Vinculo','ID_Pessoa','Nome_Completo','CPF','Tipo_Verba','Descricao_Verba','Observacao'],
+      'Gerado automaticamente. 2 linhas por verba (débito + crédito). Cobre CLTs + Associados + Sócios.',
+      this.PLC_HEADERS,
       [],
-      'OUTPUT_02_PLC_template.xlsx', 'Pre_Lancamentos_SAP',
-      [14,14,8,12,14,14,14,30,12,10,30,16,14,24,22]
+      'OUTPUT_02_PLC_template.xlsx', 'PLC_SAP',
+      [18,36,14,14,18,16,32,42,12,14,14,14,48]
     );
   }
 };
