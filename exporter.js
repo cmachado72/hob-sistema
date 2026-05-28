@@ -60,11 +60,33 @@ const Exporter = {
     'Filial'
   ],
 
+  // Mapeamento tipo_verba → códigos de evento no arquivo HOB_Contas (primeira correspondência vence)
+  TIPO_EVENTS: {
+    SALARIO:   ['1'],
+    INSS:      ['30335', '11'],
+    IRRF:      ['13'],
+    FGTS:      ['30334'],
+    BENEFICIO: ['109', '143', '1049']
+  },
+
+  // Constrói mapa tipo → linha de conta a partir das linhas brutas importadas
+  _buildContaMap(contas_raw) {
+    const byCode = {};
+    (contas_raw || []).forEach(r => { byCode[String(r.cod_evento).trim()] = r; });
+    const map = {};
+    for (const [tipo, codes] of Object.entries(this.TIPO_EVENTS)) {
+      for (const cod of codes) {
+        if (byCode[String(cod)]) { map[tipo] = byCode[String(cod)]; break; }
+      }
+    }
+    return map;
+  },
+
   generateOutput02(processedData, mesRef, params) {
     const { todasPessoas } = processedData;
-    const label  = this.monthLabel(mesRef);
-    const contas = params.contasContabeis;
-    const g      = params.plc_global || {};
+    const label    = this.monthLabel(mesRef);
+    const contaMap = this._buildContaMap(params.contas_raw);
+    const g        = params.plc_global || {};
 
     const projFin = g.projeto_financeiro  || '';
     const regra   = g.regra_distribuicao  || '';
@@ -76,42 +98,25 @@ const Exporter = {
     // Cada verba gera 2 linhas: 1 débito + 1 crédito (partidas dobradas)
     const addEntry = (p, tipo, valor, obs) => {
       if (!valor || valor === 0) return;
-      const c   = contas[tipo] || contas['OUTROS'];
-      const cpf = (p.cpf || '').replace(/\D/g, ''); // CPF sem pontuação
+      const c = contaMap[tipo];
+      if (!c) return; // tipo sem conta configurada → linha omitida
+      const cpf = (p.cpf || '').replace(/\D/g, '');
       const cc  = p.centro_custo || '';
 
       // Linha de DÉBITO
       rows.push([
-        c.debito,
-        c.nome_debito || c.descricao,
-        valor,   // Débito
-        '',      // Crédito
-        projFin,
-        cpf,
-        p.nome_completo,
-        obs,
-        regra,
-        cc,
-        dept,
-        p.id_pessoa,
-        filial
+        c.debito, c.nome_debito,
+        valor, '',
+        projFin, cpf, p.nome_completo, obs,
+        regra, cc, dept, p.id_pessoa, filial
       ]);
 
       // Linha de CRÉDITO
       rows.push([
-        c.credito,
-        c.nome_credito || c.descricao,
-        '',      // Débito
-        valor,   // Crédito
-        projFin,
-        cpf,
-        p.nome_completo,
-        obs,
-        regra,
-        cc,
-        dept,
-        p.id_pessoa,
-        filial
+        c.credito, c.nome_credito,
+        '', valor,
+        projFin, cpf, p.nome_completo, obs,
+        regra, cc, dept, p.id_pessoa, filial
       ]);
     };
 
@@ -123,7 +128,7 @@ const Exporter = {
         addEntry(p, 'FGTS',     p.fgts,             `FGTS ${label}`);
         addEntry(p, 'BENEFICIO',p.vale_transporte,  `Vale Transporte ${label}`);
         addEntry(p, 'BENEFICIO',p.vale_refeicao,    `Vale Refeição ${label}`);
-        addEntry(p, 'OUTROS',   p.outros_descontos, `Outros Descontos ${label}`);
+        addEntry(p, 'BENEFICIO',p.outros_descontos, `Outros Descontos ${label}`);
       } else {
         addEntry(p, 'PRO_LABORE', p.pro_labore_bruto,           `Pro-labore ${label}`);
         addEntry(p, 'DESCONTO',   p.total_descontos_beneficios, `Descontos Benefícios ${label}`);

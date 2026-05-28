@@ -39,20 +39,11 @@ const Storage = {
 
   getDefaultParams() {
     return {
-      // Contas contábeis por tipo de verba (usadas no PLC).
-      // Valores em branco: devem ser preenchidos via importação do arquivo HOB_Contas
-      // ou manualmente na tela de Parâmetros.
-      contasContabeis: {
-        PRO_LABORE: { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Pró-labore bruto' },
-        DESCONTO:   { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Desconto de benefícios' },
-        SALARIO:    { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Salário bruto CLT' },
-        INSS:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'INSS' },
-        IRRF:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'IRRF' },
-        FGTS:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'FGTS' },
-        BENEFICIO:  { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Benefícios' },
-        OUTROS:     { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Outros' }
-      },
-      // Parâmetros globais do PLC (campos fixos do layout SAP)
+      // Linhas brutas do arquivo HOB_Contas para Integração_Fopag_AAAA.xlsx
+      // null = arquivo ainda não carregado
+      contas_raw: null,
+
+      // Parâmetros globais do PLC (campos fixos do layout SAP, não constam no arquivo)
       plc_global: {
         projeto_financeiro:  '',
         regra_distribuicao:  '',
@@ -62,17 +53,19 @@ const Storage = {
     };
   },
 
-  // Migra parâmetros de versões anteriores: garante estrutura, sem sobrescrever valores salvos
+  // Migra params de versões anteriores para o novo formato
   migrateParams(stored) {
     const def = this.getDefaultParams();
-    if (!stored.plc_global) stored.plc_global = def.plc_global;
-    Object.keys(def.contasContabeis).forEach(k => {
-      if (!stored.contasContabeis[k]) stored.contasContabeis[k] = { ...def.contasContabeis[k] };
-      if (stored.contasContabeis[k].nome_debito  === undefined) stored.contasContabeis[k].nome_debito  = '';
-      if (stored.contasContabeis[k].nome_credito === undefined) stored.contasContabeis[k].nome_credito = '';
-      if (stored.contasContabeis[k].cod_evento   === undefined) stored.contasContabeis[k].cod_evento   = '';
-      if (stored.contasContabeis[k].nome_evento  === undefined) stored.contasContabeis[k].nome_evento  = '';
+
+    // Garante plc_global e seus campos
+    if (!stored.plc_global) stored.plc_global = { ...def.plc_global };
+    ['projeto_financeiro', 'regra_distribuicao', 'departamento_padrao', 'filial'].forEach(k => {
+      if (stored.plc_global[k] === undefined) stored.plc_global[k] = '';
     });
+
+    // Garante contas_raw (versões antigas tinham contasContabeis — descartado)
+    if (stored.contas_raw === undefined) stored.contas_raw = null;
+
     return stored;
   }
 };
