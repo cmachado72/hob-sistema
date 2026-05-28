@@ -401,7 +401,17 @@ const ParametrosPage = {
     if (!this._pendingImport) return;
     const { result, regra } = this._pendingImport;
 
-    // Fill the accounts table inputs
+    // Limpar todos os campos CLT antes de preencher (importação sobrepõe a anterior)
+    const cltTipos = ['SALARIO', 'INSS', 'IRRF', 'FGTS', 'BENEFICIO'];
+    const camposContas = ['debito', 'nome_debito', 'credito', 'nome_credito'];
+    cltTipos.forEach(tipo => {
+      camposContas.forEach(campo => {
+        const input = document.querySelector(`input[data-tipo="${tipo}"][data-campo="${campo}"]`);
+        if (input) input.value = '';
+      });
+    });
+
+    // Preencher com os valores importados
     for (const [tipo, r] of Object.entries(result)) {
       const fields = {
         debito:       r.debito,
@@ -411,7 +421,7 @@ const ParametrosPage = {
       };
       for (const [campo, val] of Object.entries(fields)) {
         const input = document.querySelector(`input[data-tipo="${tipo}"][data-campo="${campo}"]`);
-        if (input && val) input.value = val;
+        if (input) input.value = val;
       }
     }
 
