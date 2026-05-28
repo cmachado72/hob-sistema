@@ -1,4 +1,14 @@
 const ParametrosPage = {
+
+  // Event code → tipo_verba mapping (first match in array wins)
+  TIPO_EVENTS: {
+    SALARIO:   [1],
+    INSS:      [30335, 11],
+    IRRF:      [13],
+    FGTS:      [30334],
+    BENEFICIO: [109, 143, 1049]
+  },
+
   render() {
     const params = Storage.getParams();
     const contas = params.contasContabeis;
@@ -64,6 +74,40 @@ const ParametrosPage = {
           <span>✅</span> Parâmetros salvos com sucesso.
         </div>
 
+        <!-- Seção 0: Importar do arquivo HOB_Contas -->
+        <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">↑</span>
+          Importar contas do arquivo HOB_Contas (opcional)
+        </h2>
+        <div class="bg-white rounded-xl border border-indigo-100 shadow-sm p-5 mb-6">
+          <p class="text-xs text-slate-500 mb-4">
+            Faça upload do arquivo <strong>HOB_Contas para Integração_Fopag_AAAA.xlsx</strong> para preencher
+            automaticamente os campos de débito e crédito dos vínculos CLT nas seções abaixo.
+            Os tipos <em>Pró-labore</em>, <em>Descontos Benef.</em> e <em>Outros</em> não constam nesse arquivo e devem ser configurados manualmente.
+          </p>
+
+          <div id="import-dropzone"
+            class="border-2 border-dashed border-indigo-200 rounded-xl p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors group">
+            <div class="flex flex-col items-center gap-2 pointer-events-none">
+              <svg class="w-8 h-8 text-indigo-300 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <p class="text-sm text-indigo-500 font-medium">Arraste o arquivo aqui</p>
+              <p class="text-xs text-slate-400">ou</p>
+              <label class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium cursor-pointer transition-colors shadow-sm pointer-events-auto">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+                Selecionar arquivo
+                <input type="file" id="import-contas-input" accept=".xlsx,.xls" class="hidden">
+              </label>
+              <p class="text-xs text-slate-400 mt-1">HOB_Contas para Integração_Fopag_AAAA.xlsx</p>
+            </div>
+          </div>
+
+          <div id="import-contas-preview" class="hidden"></div>
+        </div>
+
         <!-- Seção 1: Campos globais PLC -->
         <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
           <span class="w-5 h-5 rounded-full bg-[#1e3a5f] text-white text-xs flex items-center justify-center font-bold">1</span>
@@ -127,7 +171,267 @@ const ParametrosPage = {
       Storage.saveParams(Storage.getDefaultParams());
       App.render();
     });
+
+    // Import feature — file input
+    const importInput = document.getElementById('import-contas-input');
+    if (importInput) {
+      importInput.addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        if (f) this.importContas(f);
+        e.target.value = '';
+      });
+    }
+
+    // Import feature — drag-and-drop
+    const dropzone = document.getElementById('import-dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-indigo-400', 'bg-indigo-50');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-indigo-400', 'bg-indigo-50');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-indigo-400', 'bg-indigo-50');
+        const f = e.dataTransfer.files[0];
+        if (f) this.importContas(f);
+      });
+    }
   },
+
+  // ─── Import logic ───────────────────────────────────────────────
+
+  importContas(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb   = XLSX.read(e.target.result, { type: 'array' });
+        // Prefer sheet named "BD", fallback to first sheet
+        const ws   = wb.Sheets['BD'] || wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        // Find header row (look for CÓD / EVENTO in first 6 rows)
+        let headerRow = -1;
+        for (let i = 0; i < Math.min(data.length, 6); i++) {
+          const row = data[i].map(c => String(c).toUpperCase());
+          if (row.some(c => c.includes('EVENTO') || (c.includes('CÓD') && c.includes('EVEN')))) {
+            headerRow = i;
+            break;
+          }
+        }
+        if (headerRow === -1) {
+          alert('Não foi possível identificar o cabeçalho da planilha.\nVerifique se é o arquivo correto (aba "BD" com coluna "CÓD. EVENTO").');
+          return;
+        }
+
+        const headers = data[headerRow].map(h => String(h).trim().toUpperCase());
+
+        // Locate columns by header text
+        const codIdx    = headers.findIndex(h => h.includes('CÓD') || (h.includes('COD') && h.includes('EVEN')));
+        const nomeEvIdx = headers.findIndex(h => h.includes('NOME') && h.includes('EVENTO'));
+        const debIdx    = headers.findIndex(h => h.startsWith('DÉB') || h.startsWith('DEB') || h === 'DÉBITO');
+        const creIdx    = headers.findIndex(h => h.startsWith('CRÉ') || h.startsWith('CRE') || h === 'CRÉDITO');
+        const regraIdx  = headers.findIndex(h => h.includes('REGRA'));
+
+        // "NOME CONTA CONTÁBIL" appears twice — first after DÉBITO, second after CRÉDITO
+        let nomeDebIdx = -1;
+        let nomeCreIdx = -1;
+        for (let i = 0; i < headers.length; i++) {
+          const h = headers[i];
+          if ((h.includes('NOME') && h.includes('CONT')) || h === 'NOME CONTA CONTÁBIL' || h === 'NOME CONTA CONTABIL') {
+            if (nomeDebIdx === -1 && i > debIdx) nomeDebIdx = i;
+            else if (nomeCreIdx === -1 && i > creIdx) nomeCreIdx = i;
+          }
+        }
+        // Fallback: assume they're directly after DEB and CRE columns
+        if (nomeDebIdx === -1 && debIdx >= 0) nomeDebIdx = debIdx + 1;
+        if (nomeCreIdx === -1 && creIdx >= 0) nomeCreIdx = creIdx + 1;
+
+        // Index all event rows by code
+        const eventMap = {};
+        let regra = '';
+        for (let i = headerRow + 1; i < data.length; i++) {
+          const row = data[i];
+          const rawCod = String(row[codIdx] ?? '').trim();
+          if (!rawCod) continue;
+          const codNum = Number(rawCod);
+          if (isNaN(codNum) || codNum === 0) continue;
+
+          if (regraIdx >= 0 && row[regraIdx]) regra = String(row[regraIdx]).trim();
+
+          eventMap[codNum] = {
+            cod:      codNum,
+            nome:     String(row[nomeEvIdx] ?? '').trim(),
+            debito:   String(row[debIdx]    ?? '').trim(),
+            nomeDeb:  String(row[nomeDebIdx]?? '').trim(),
+            credito:  String(row[creIdx]    ?? '').trim(),
+            nomeCred: String(row[nomeCreIdx]?? '').trim()
+          };
+        }
+
+        // Map event codes to tipos
+        const result = {};
+        for (const [tipo, codes] of Object.entries(this.TIPO_EVENTS)) {
+          for (const cod of codes) {
+            if (eventMap[cod]) {
+              result[tipo] = { ...eventMap[cod], tipo };
+              break;
+            }
+          }
+        }
+
+        if (Object.keys(result).length === 0) {
+          alert('Nenhum código de evento reconhecido foi encontrado na planilha.\nVerifique se o arquivo contém os códigos esperados (ex: 1 — SALÁRIO, 30334 — FGTS, etc.).');
+          return;
+        }
+
+        this._showImportPreview(result, regra);
+
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao processar o arquivo: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  _showImportPreview(result, regra) {
+    const tipoLabels = {
+      SALARIO:   'Salário Bruto',
+      INSS:      'INSS',
+      IRRF:      'IRRF',
+      FGTS:      'FGTS',
+      BENEFICIO: 'Benefícios'
+    };
+
+    const rows = Object.keys(tipoLabels).map(tipo => {
+      const r = result[tipo];
+      if (!r) {
+        return `
+          <tr class="bg-amber-50">
+            <td class="px-3 py-2.5 text-xs font-semibold text-gray-700">${tipoLabels[tipo]}</td>
+            <td class="px-3 py-2.5 text-xs text-amber-600 italic" colspan="4">Código não encontrado — linha mantida sem alteração</td>
+          </tr>`;
+      }
+      return `
+        <tr class="hover:bg-slate-50">
+          <td class="px-3 py-2.5">
+            <div class="text-xs font-semibold text-gray-800">${tipoLabels[tipo]}</div>
+          </td>
+          <td class="px-3 py-2.5">
+            <div class="text-xs font-mono text-slate-600">${r.cod}</div>
+            <div class="text-xs text-slate-400 mt-0.5">${r.nome}</div>
+          </td>
+          <td class="px-3 py-2.5">
+            <div class="text-xs font-mono text-gray-800">${r.debito}</div>
+            <div class="text-xs text-slate-400 mt-0.5 leading-tight">${r.nomeDeb}</div>
+          </td>
+          <td class="px-3 py-2.5">
+            <div class="text-xs font-mono text-gray-800">${r.credito}</div>
+            <div class="text-xs text-slate-400 mt-0.5 leading-tight">${r.nomeCred}</div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    const regraHtml = regra
+      ? `<div class="mt-3 rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-2.5 text-xs text-indigo-700">
+           <strong>Regra de distribuição detectada:</strong> <span class="font-mono">${regra}</span>
+           — será aplicada ao campo <em>Regra distr.</em> nos parâmetros globais.
+         </div>`
+      : '';
+
+    const notesHtml = `
+      <p class="text-xs text-slate-400 mt-2">
+        <strong>Nota:</strong> Os tipos <em>Pró-labore</em>, <em>Descontos Benef.</em> e <em>Outros</em>
+        não constam nesse arquivo e permanecerão com os valores atuais.
+        Para o tipo <em>Benefícios</em>, é usado o primeiro código identificado (Cód. 109 — VT, 143 — VR ou 1049 — Assist. Médica).
+      </p>`;
+
+    const preview = document.getElementById('import-contas-preview');
+    preview.innerHTML = `
+      <div class="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+        <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <span class="text-xs font-semibold text-slate-700">Prévia da importação</span>
+        </div>
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-white border-b border-slate-100">
+            <tr>
+              <th class="px-3 py-2 text-xs font-semibold text-slate-500">Tipo de Verba</th>
+              <th class="px-3 py-2 text-xs font-semibold text-slate-500">Evento (cód. + nome)</th>
+              <th class="px-3 py-2 text-xs font-semibold text-slate-500">Conta Débito</th>
+              <th class="px-3 py-2 text-xs font-semibold text-slate-500">Conta Crédito</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">${rows}</tbody>
+        </table>
+      </div>
+      ${regraHtml}
+      ${notesHtml}
+      <div class="mt-4 flex items-center gap-3">
+        <button id="btn-apply-import"
+          class="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          Aplicar importação
+        </button>
+        <button id="btn-cancel-import"
+          class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+          Cancelar
+        </button>
+      </div>`;
+
+    preview.classList.remove('hidden');
+    this._pendingImport = { result, regra };
+
+    document.getElementById('btn-apply-import').addEventListener('click', () => this._applyImport());
+    document.getElementById('btn-cancel-import').addEventListener('click', () => {
+      preview.classList.add('hidden');
+      preview.innerHTML = '';
+      this._pendingImport = null;
+    });
+  },
+
+  _applyImport() {
+    if (!this._pendingImport) return;
+    const { result, regra } = this._pendingImport;
+
+    // Fill the accounts table inputs
+    for (const [tipo, r] of Object.entries(result)) {
+      const fields = {
+        debito:       r.debito,
+        nome_debito:  r.nomeDeb,
+        credito:      r.credito,
+        nome_credito: r.nomeCred
+      };
+      for (const [campo, val] of Object.entries(fields)) {
+        const input = document.querySelector(`input[data-tipo="${tipo}"][data-campo="${campo}"]`);
+        if (input && val) input.value = val;
+      }
+    }
+
+    // Auto-fill regra_distribuicao in global params
+    if (regra) {
+      const regraInput = document.querySelector('input[data-plc="regra_distribuicao"]');
+      if (regraInput) regraInput.value = regra;
+    }
+
+    // Save everything
+    this.save();
+
+    // Hide preview
+    const preview = document.getElementById('import-contas-preview');
+    preview.classList.add('hidden');
+    preview.innerHTML = '';
+    this._pendingImport = null;
+  },
+
+  // ─── Save ────────────────────────────────────────────────────────
 
   save() {
     const params = Storage.getParams();
