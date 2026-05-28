@@ -43,14 +43,14 @@ const Storage = {
       // Valores em branco: devem ser preenchidos via importação do arquivo HOB_Contas
       // ou manualmente na tela de Parâmetros.
       contasContabeis: {
-        PRO_LABORE: { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Pró-labore bruto' },
-        DESCONTO:   { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Desconto de benefícios' },
-        SALARIO:    { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Salário bruto CLT' },
-        INSS:       { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'INSS' },
-        IRRF:       { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'IRRF' },
-        FGTS:       { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'FGTS' },
-        BENEFICIO:  { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Benefícios' },
-        OUTROS:     { debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Outros' }
+        PRO_LABORE: { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Pró-labore bruto' },
+        DESCONTO:   { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Desconto de benefícios' },
+        SALARIO:    { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Salário bruto CLT' },
+        INSS:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'INSS' },
+        IRRF:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'IRRF' },
+        FGTS:       { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'FGTS' },
+        BENEFICIO:  { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Benefícios' },
+        OUTROS:     { cod_evento: '', nome_evento: '', debito: '', nome_debito: '', credito: '', nome_credito: '', descricao: 'Outros' }
       },
       // Parâmetros globais do PLC (campos fixos do layout SAP)
       plc_global: {
@@ -70,6 +70,8 @@ const Storage = {
       if (!stored.contasContabeis[k]) stored.contasContabeis[k] = { ...def.contasContabeis[k] };
       if (stored.contasContabeis[k].nome_debito  === undefined) stored.contasContabeis[k].nome_debito  = '';
       if (stored.contasContabeis[k].nome_credito === undefined) stored.contasContabeis[k].nome_credito = '';
+      if (stored.contasContabeis[k].cod_evento   === undefined) stored.contasContabeis[k].cod_evento   = '';
+      if (stored.contasContabeis[k].nome_evento  === undefined) stored.contasContabeis[k].nome_evento  = '';
     });
     return stored;
   }

@@ -15,8 +15,8 @@ const ParametrosPage = {
     const g      = params.plc_global || {};
 
     const tipos = [
-      { key: 'PRO_LABORE', label: 'Pró-labore',       vinculo: 'ASSOCIADO / SOCIO' },
-      { key: 'DESCONTO',   label: 'Descontos Benef.', vinculo: 'ASSOCIADO / SOCIO' },
+      { key: 'PRO_LABORE', label: 'Pró-labore',       vinculo: 'ASSOC / SÓCIO' },
+      { key: 'DESCONTO',   label: 'Descontos Benef.', vinculo: 'ASSOC / SÓCIO' },
       { key: 'SALARIO',    label: 'Salário Bruto',    vinculo: 'CLT' },
       { key: 'INSS',       label: 'INSS',             vinculo: 'CLT' },
       { key: 'IRRF',       label: 'IRRF',             vinculo: 'CLT' },
@@ -27,22 +27,26 @@ const ParametrosPage = {
 
     const contaRows = tipos.map(t => {
       const c = contas[t.key] || {};
-      const inp = (campo, val, placeholder) =>
+      const inp = (campo, val, placeholder, mono = true) =>
         `<input type="text" data-tipo="${t.key}" data-campo="${campo}" value="${val || ''}"
-          class="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 bg-white"
+          class="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 ${mono ? 'font-mono' : ''} focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 bg-white"
           placeholder="${placeholder}">`;
 
       return `
         <tr>
           <td class="px-3 py-2.5">
             <div class="text-xs font-semibold text-gray-800">${t.label}</div>
-            <div class="text-xs text-gray-400 font-mono mt-0.5">${t.key}</div>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="text-xs font-mono text-gray-400">${t.key}</span>
+              <span class="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full whitespace-nowrap">${t.vinculo}</span>
+            </div>
           </td>
-          <td class="px-3 py-2.5"><span class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full whitespace-nowrap">${t.vinculo}</span></td>
-          <td class="px-3 py-2.5">${inp('debito',      c.debito,      '6.1.1.01')}</td>
-          <td class="px-3 py-2.5">${inp('nome_debito', c.nome_debito, 'Nome da conta débito')}</td>
-          <td class="px-3 py-2.5">${inp('credito',      c.credito,      '2.1.3.01')}</td>
-          <td class="px-3 py-2.5">${inp('nome_credito', c.nome_credito, 'Nome da conta crédito')}</td>
+          <td class="px-3 py-2.5">${inp('cod_evento',  c.cod_evento,  'ex: 1', true)}</td>
+          <td class="px-3 py-2.5">${inp('nome_evento', c.nome_evento, 'ex: SALÁRIO', false)}</td>
+          <td class="px-3 py-2.5">${inp('debito',      c.debito,      'ex: 4.1.01.97.0001')}</td>
+          <td class="px-3 py-2.5">${inp('nome_debito', c.nome_debito, 'Nome da conta débito', false)}</td>
+          <td class="px-3 py-2.5">${inp('credito',     c.credito,     'ex: 2.1.01.02.0001')}</td>
+          <td class="px-3 py-2.5">${inp('nome_credito',c.nome_credito,'Nome da conta crédito', false)}</td>
         </tr>`;
     }).join('');
 
@@ -132,15 +136,16 @@ const ParametrosPage = {
           Contas contábeis por tipo de verba
         </h2>
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto mb-6">
-          <table class="w-full text-left border-collapse min-w-[900px]">
-            <thead>
+          <table class="w-full text-left border-collapse min-w-[1100px]">
+            <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th class="px-3 py-3 text-xs">Tipo de Verba</th>
-                <th class="px-3 py-3 text-xs">Vínculo</th>
-                <th class="px-3 py-3 text-xs">Cta. Débito<br><span class="font-normal text-slate-400">(Cta.contáb./cód.PN)</span></th>
-                <th class="px-3 py-3 text-xs">Nome Débito<br><span class="font-normal text-slate-400">(Cta.cont./Nome PN)</span></th>
-                <th class="px-3 py-3 text-xs">Cta. Crédito<br><span class="font-normal text-slate-400">(Cta.contáb./cód.PN)</span></th>
-                <th class="px-3 py-3 text-xs">Nome Crédito<br><span class="font-normal text-slate-400">(Cta.cont./Nome PN)</span></th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">Tipo de Verba</th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">CÓD. EVENTO</th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">NOME DO EVENTO</th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">DÉBITO<br><span class="font-normal text-slate-400">(Cta.contáb./cód.PN)</span></th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">NOME CONTA CONTÁBIL<br><span class="font-normal text-slate-400">(Cta.cont./Nome PN)</span></th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">CRÉDITO<br><span class="font-normal text-slate-400">(Cta.contáb./cód.PN)</span></th>
+                <th class="px-3 py-3 text-xs font-semibold text-slate-600">NOME CONTA CONTÁBIL<br><span class="font-normal text-slate-400">(Cta.cont./Nome PN)</span></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">${contaRows}</tbody>
@@ -403,7 +408,7 @@ const ParametrosPage = {
 
     // Limpar todos os campos CLT antes de preencher (importação sobrepõe a anterior)
     const cltTipos = ['SALARIO', 'INSS', 'IRRF', 'FGTS', 'BENEFICIO'];
-    const camposContas = ['debito', 'nome_debito', 'credito', 'nome_credito'];
+    const camposContas = ['cod_evento', 'nome_evento', 'debito', 'nome_debito', 'credito', 'nome_credito'];
     cltTipos.forEach(tipo => {
       camposContas.forEach(campo => {
         const input = document.querySelector(`input[data-tipo="${tipo}"][data-campo="${campo}"]`);
@@ -414,6 +419,8 @@ const ParametrosPage = {
     // Preencher com os valores importados
     for (const [tipo, r] of Object.entries(result)) {
       const fields = {
+        cod_evento:   String(r.cod),
+        nome_evento:  r.nome,
         debito:       r.debito,
         nome_debito:  r.nomeDeb,
         credito:      r.credito,
